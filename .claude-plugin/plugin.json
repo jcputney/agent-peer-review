@@ -1,25 +1,7 @@
 {
   "name": "codex-peer-review",
   "description": "Peer validation system using OpenAI Codex CLI. Validates Claude's designs and code reviews through structured discussion before presenting to user.",
-  "version": "1.0.0",
-  "author": "jcputney",
-  "commands": [
-    {
-      "name": "codex-peer-review",
-      "file": "commands/codex-peer-review.md"
-    }
-  ],
-  "agents": [
-    {
-      "name": "codex-peer-reviewer",
-      "file": "agents/codex-peer-reviewer.md"
-    }
-  ],
-  "skills": [
-    {
-      "name": "codex-peer-review",
-      "file": "skills/codex-peer-review/SKILL.md"
-    }
-  ],
-  "repository": "https://github.com/jcputney/codex-peer-review"
+  "author": {
+    "name": "jcputney"
+  }
 }
