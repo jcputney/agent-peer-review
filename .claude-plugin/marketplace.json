@@ -9,7 +9,7 @@
     {
       "name": "codex-peer-review",
       "description": "Peer validation system using OpenAI Codex CLI. Two AI perspectives catch more issues than one.",
-      "source": ".",
+      "source": "./",
       "category": "code-quality",
       "tags": ["peer-review", "code-review", "validation", "codex", "ai-collaboration"]
     }
