@@ -132,7 +132,6 @@ Main Conversation                    Subagent Context
 
 This marketplace is designed to host multiple peer review plugins. Future plugins could include:
 - `claude-peer-review` - Claude reviewing Claude (different model versions)
-- `gpt-peer-review` - GPT as the peer reviewer
 - `gemini-peer-review` - Gemini as the peer reviewer
 
 To add a new plugin, create a new directory under `plugins/` following the same structure.
