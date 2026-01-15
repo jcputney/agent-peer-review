@@ -1,0 +1,17 @@
+{
+  "description": "Peer review reminder hooks",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/peer-review-reminder.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
