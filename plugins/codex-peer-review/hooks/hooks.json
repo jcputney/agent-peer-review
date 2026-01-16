@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c \"bash \\\"$(cygpath -u '${CLAUDE_PLUGIN_ROOT}' 2>/dev/null || echo '${CLAUDE_PLUGIN_ROOT}')/hooks/peer-review-reminder.sh\\\"\"",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" peer-review-reminder.sh",
             "timeout": 10
           }
         ]
@@ -19,7 +19,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c \"bash \\\"$(cygpath -u '${CLAUDE_PLUGIN_ROOT}' 2>/dev/null || echo '${CLAUDE_PLUGIN_ROOT}')/hooks/stop-peer-review-check.sh\\\"\"",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" stop-peer-review-check.sh",
             "timeout": 5
           }
         ]
@@ -31,7 +31,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c \"bash \\\"$(cygpath -u '${CLAUDE_PLUGIN_ROOT}' 2>/dev/null || echo '${CLAUDE_PLUGIN_ROOT}')/hooks/plan-peer-review-check.sh\\\"\"",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/run-hook.cmd\" plan-peer-review-check.sh",
             "timeout": 5
           }
         ]
