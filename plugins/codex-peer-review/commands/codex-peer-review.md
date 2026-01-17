@@ -1,6 +1,19 @@
 ---
 name: codex-peer-review
 description: Trigger peer review validation with Codex CLI. Use without arguments for current changes, --base <branch> for specific branch comparison, or add a question for broad technical validation.
+allowed-tools:
+  - Bash(codex:*)
+  - Bash(mktemp:*)
+  - Bash(cat:*)
+  - Bash(command:*)
+  - Bash(which:*)
+  - Bash(jq:*)
+  - Bash(grep:*)
+  - Bash(head:*)
+  - Bash(tee:*)
+  - Read
+  - Task
+  - AskUserQuestion
 ---
 
 # Codex Peer Review Command

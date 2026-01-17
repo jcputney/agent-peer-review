@@ -1,6 +1,17 @@
 ---
 name: codex-peer-review
 description: Use when completing implementation tasks and wanting a second opinion from Codex CLI, after major feature work, or when existing code-reviewer identifies issues needing external validation
+allowed-tools:
+  - Bash(codex:*)
+  - Bash(mktemp:*)
+  - Bash(cat:*)
+  - Bash(command:*)
+  - Bash(which:*)
+  - Bash(jq:*)
+  - Bash(grep:*)
+  - Bash(head:*)
+  - Bash(tee:*)
+  - Read
 ---
 
 # Codex Peer Review

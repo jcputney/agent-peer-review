@@ -4,6 +4,17 @@ description: Use this agent to run peer review validation with Codex CLI. Dispat
 model: sonnet
 skills:
   - codex-peer-review
+allowed-tools:
+  - Bash(codex:*)
+  - Bash(mktemp:*)
+  - Bash(cat:*)
+  - Bash(command:*)
+  - Bash(which:*)
+  - Bash(jq:*)
+  - Bash(grep:*)
+  - Bash(head:*)
+  - Bash(tee:*)
+  - Read
 ---
 
 # Codex Peer Reviewer Agent
@@ -65,7 +76,7 @@ Review the following code/changes for:
 PROMPT_EOF
 
 codex exec "$(cat "$PROMPT_FILE")"
-rm -f "$PROMPT_FILE"
+# Temp files in /tmp are auto-cleaned by the OS
 ```
 
 ---
