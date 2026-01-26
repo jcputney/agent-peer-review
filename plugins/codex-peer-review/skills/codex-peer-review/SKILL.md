@@ -2,15 +2,12 @@
 name: codex-peer-review
 description: This skill should be invoked BEFORE presenting implementation plans, architecture recommendations, code review findings, or answers to broad technical questions. Use proactively when about to "recommend", "suggest", "propose", "design", "plan", or answer "how should", "what's the best way", "which approach". MANDATORY for multi-file changes, refactoring proposals, and security-sensitive recommendations.
 allowed-tools:
-  - Bash(codex:*)
-  - Bash(mktemp:*)
-  - Bash(cat:*)
-  - Bash(command:*)
-  - Bash(which:*)
-  - Bash(jq:*)
-  - Bash(grep:*)
-  - Bash(head:*)
-  - Bash(tee:*)
+  - Bash(codex exec*)
+  - Bash(codex review*)
+  - Bash(command -v codex*)
+  - Bash(command -v jq*)
+  - Bash(jq *)
+  - Bash(grep *)
   - Read
 ---
 
@@ -128,9 +125,11 @@ You are validating Claude's analysis using OpenAI Codex CLI.
 Run: codex review --base [branch]
 
 ### If Type is "design", "architecture", or "question":
-Run: codex exec with focused prompt:
+Run: codex exec with heredoc (avoids escaping issues and permission prompts):
 
-codex exec "Validate this [design|refactoring plan|architecture proposal]:
+```bash
+codex exec <<'EOF'
+Validate this [design|refactoring plan|architecture proposal]:
 
 [Summarize Claude's specific proposal in 2-3 sentences]
 
@@ -142,7 +141,9 @@ Check for:
 - Better alternatives
 - Missing considerations
 
-Provide specific, actionable feedback."
+Provide specific, actionable feedback.
+EOF
+```
 
 ## Compare and Classify
 After running the appropriate command:
@@ -192,31 +193,31 @@ First, verify tools are available:
 - Check jq (optional but recommended): `which jq || echo "WARNING: jq not available, will use grep fallback"`
 
 ## Task
-1. Create temp file in a safe location:
-   TMPFILE="${TMPDIR:-/tmp}/codex_round1_$$.json"
+1. Run codex exec with --json and capture output to extract session ID:
 
-2. Run codex exec with --json to capture session ID:
-
-   codex exec --json "Given this disagreement about [topic]:
+   ```bash
+   codex exec --json <<'EOF' 2>&1 | tee /tmp/codex_round1_$$.json
+   Given this disagreement about [topic]:
 
    Claude's position: [summary with evidence]
 
    Provide your evidence-based reasoning. Reference specific code or conventions.
-   What is your position and why?" 2>&1 | tee "$TMPFILE"
+   What is your position and why?
+   EOF
+   ```
 
-3. Extract session ID for Round 2 (with fallback):
-   # Primary method (requires jq)
+2. Extract session ID for Round 2:
+   ```bash
+   # Extract thread_id from JSON output (grep fallback if jq unavailable)
+   TMPFILE="/tmp/codex_round1_$$.json"
    if command -v jq &>/dev/null; then
-     SESSION_ID=$(jq -r 'select(.type=="thread.started") | .thread_id' "$TMPFILE" | head -1)
+     SESSION_ID=$(jq -r 'select(.type=="thread.started") | .thread_id' "$TMPFILE" 2>/dev/null | head -1)
    else
-     # Fallback: grep for thread_id
-     SESSION_ID=$(grep -o '"thread_id":"[^"]*"' "$TMPFILE" | head -1 | cut -d'"' -f4)
+     SESSION_ID=$(grep -o '"thread_id":"[^"]*"' "$TMPFILE" 2>/dev/null | head -1 | cut -d'"' -f4)
    fi
 
-   # Verify we got a session ID
-   if [ -z "$SESSION_ID" ]; then
-     echo "WARNING: Could not extract session ID. Round 2 will start fresh."
-   fi
+   [ -z "$SESSION_ID" ] && echo "WARNING: Could not extract session ID. Round 2 will start fresh."
+   ```
 
 4. Parse Codex response and attempt synthesis
 
@@ -238,27 +239,32 @@ Discussion Round 2
 
 ## Task
 1. Resume the previous Codex session (if session ID available):
-   TMPFILE="${TMPDIR:-/tmp}/codex_round2_$$.json"
 
+   ```bash
    # If we have a session ID, resume; otherwise start fresh with context
    if [ -n "$SESSION_ID" ]; then
-     codex exec resume "$SESSION_ID" --json "Claude responds to your points:
+     codex exec resume "$SESSION_ID" --json <<'EOF' 2>&1 | tee /tmp/codex_round2_$$.json
+   Claude responds to your points:
 
-     [Claude's Round 2 response with new evidence]
+   [Claude's Round 2 response with new evidence]
 
-     Can we reach synthesis? What is your final position?" 2>&1 | tee "$TMPFILE"
+   Can we reach synthesis? What is your final position?
+   EOF
    else
      # Fallback: Start fresh but include Round 1 context in prompt
-     codex exec --json "Continuing discussion about [topic]:
+     codex exec --json <<'EOF' 2>&1 | tee /tmp/codex_round2_$$.json
+   Continuing discussion about [topic]:
 
-     Round 1 summary:
-     - Claude's position: [summary]
-     - Codex's position: [summary from Round 1]
+   Round 1 summary:
+   - Claude's position: [summary]
+   - Codex's position: [summary from Round 1]
 
-     Claude's Round 2 response: [new evidence]
+   Claude's Round 2 response: [new evidence]
 
-     Can we reach synthesis? What is your final position?" 2>&1 | tee "$TMPFILE"
+   Can we reach synthesis? What is your final position?
+   EOF
    fi
+   ```
 
 2. Parse Codex response
 3. Determine if resolved or needs escalation

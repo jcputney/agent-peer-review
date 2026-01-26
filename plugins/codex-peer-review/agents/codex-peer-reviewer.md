@@ -5,15 +5,12 @@ model: sonnet
 skills:
   - codex-peer-review
 allowed-tools:
-  - Bash(codex:*)
-  - Bash(mktemp:*)
-  - Bash(cat:*)
-  - Bash(command:*)
-  - Bash(which:*)
-  - Bash(jq:*)
-  - Bash(grep:*)
-  - Bash(head:*)
-  - Bash(tee:*)
+  - Bash(codex exec*)
+  - Bash(codex review*)
+  - Bash(command -v codex*)
+  - Bash(command -v jq*)
+  - Bash(jq *)
+  - Bash(grep *)
   - Read
 ---
 
@@ -58,25 +55,22 @@ fi
 - Cross-checking Claude's analysis
 - Any focused or scoped review request
 
-**IMPORTANT:** Always use stdin/temp files for prompts to avoid shell escaping issues.
+**IMPORTANT:** Always use heredoc stdin for prompts to avoid shell escaping issues and permission prompts.
 
 ---
 
 **For almost all reviews (DEFAULT):**
 ```bash
-# Use codex exec when user asks about something specific
-PROMPT_FILE=$(mktemp /tmp/codex-prompt-XXXXXX.md)
-cat > "$PROMPT_FILE" <<'PROMPT_EOF'
+# Use codex exec with heredoc - prompt goes directly to stdin
+# No temp files needed, no extra permissions required
+codex exec <<'EOF'
 Review the following code/changes for:
 - [Specific concern from user's request]
 - Code quality and potential bugs
 - Edge cases
 
 [Paste the specific code or describe the specific changes here]
-PROMPT_EOF
-
-codex exec "$(cat "$PROMPT_FILE")"
-# Temp files in /tmp are auto-cleaned by the OS
+EOF
 ```
 
 ---
@@ -98,7 +92,10 @@ codex review --base [branch]
 codex review --commit [sha]
 ```
 
-**Why stdin/temp files?** Command-line arguments with quotes, newlines, or special characters cause shell escaping failures.
+**Why heredoc stdin?**
+- No temp file permissions needed (`mktemp`, `cat`)
+- No shell escaping issues with quotes, newlines, or special characters
+- Single command = single permission prompt
 
 ### Step 3: Compare Results
 
