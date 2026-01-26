@@ -4,13 +4,5 @@
   "description": "Peer validation system using OpenAI Codex CLI. Validates Claude's designs and code reviews through structured discussion before presenting to user.",
   "author": {
     "name": "jcputney"
-  },
-  "allowedTools": [
-    "Bash(codex exec*)",
-    "Bash(codex review*)",
-    "Bash(command -v codex*)",
-    "Bash(command -v jq*)",
-    "Bash(jq *)",
-    "Bash(grep *)"
-  ]
+  }
 }

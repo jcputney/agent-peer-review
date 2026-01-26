@@ -87,24 +87,16 @@ The plugin reminds Claude to trigger peer review when about to present:
 | Design Validation | `codex exec "..."` | Validating proposals, plans, architecture |
 | Question Answering | `codex exec "..."` | Answering broad technical questions |
 
-## Pre-Approved Permissions
+## Permissions
 
-When you install the plugin, these bash commands are pre-approved (no per-command prompts):
+The plugin uses heredoc stdin to minimize permission prompts. On first use, you'll be asked to approve:
 
 | Pattern | Purpose |
 |---------|---------|
 | `codex exec*` | Run focused peer review prompts |
 | `codex review*` | Review git diffs against branches |
-| `command -v codex*` | Check if Codex CLI is installed |
-| `command -v jq*` | Check if jq is available for JSON parsing |
-| `jq *` | Parse session IDs from Codex JSON output |
-| `grep *` | Fallback parsing when jq unavailable |
 
-**Note:** If you still see permission prompts after installing, try removing and re-adding the plugin:
-```bash
-/plugin remove codex-peer-review
-/plugin install codex-peer-review
-```
+**Tip:** When prompted, select "Always allow" to avoid repeated prompts.
 
 ## Marketplace Structure
 
