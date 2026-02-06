@@ -1,14 +1,6 @@
 ---
 name: codex-peer-review
 description: This skill should be invoked BEFORE presenting implementation plans, architecture recommendations, code review findings, or answers to broad technical questions. Use proactively when about to "recommend", "suggest", "propose", "design", "plan", or answer "how should", "what's the best way", "which approach". MANDATORY for multi-file changes, refactoring proposals, and security-sensitive recommendations.
-allowed-tools:
-  - Bash(codex exec*)
-  - Bash(codex review*)
-  - Bash(command -v codex*)
-  - Bash(command -v jq*)
-  - Bash(jq *)
-  - Bash(grep *)
-  - Read
 ---
 
 # Codex Peer Review

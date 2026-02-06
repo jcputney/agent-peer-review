@@ -6,7 +6,7 @@ color: cyan
 permissionMode: bypassPermissions
 skills:
   - codex-peer-review
-allowed-tools:
+tools:
   - Bash(codex exec*)
   - Bash(codex review*)
   - Bash(command -v codex*)

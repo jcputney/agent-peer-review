@@ -1,11 +1,20 @@
 #!/bin/bash
 # PreToolUse hook for Write: Check if writing significant implementation files
 
-# Get the file path from environment (if available)
-FILE_PATH="${CLAUDE_TOOL_INPUT:-}"
+# Read hook context from stdin (JSON)
+INPUT=$(cat)
+
+# Extract the file_path from JSON input
+# Try jq first, fall back to grep/cut
+if command -v jq &>/dev/null; then
+  FILE_PATH=$(echo "$INPUT" | jq -r '.file_path // empty' 2>/dev/null)
+else
+  FILE_PATH=$(echo "$INPUT" | grep -o '"file_path":"[^"]*"' | head -1 | cut -d'"' -f4)
+fi
 
 # Check if writing implementation files (not config, not docs, not tests)
-if echo "$FILE_PATH" | grep -qiE "\.(ts|js|py|go|rs|java|cpp|c|rb|swift|kt)$" && \
+if [ -n "$FILE_PATH" ] && \
+   echo "$FILE_PATH" | grep -qiE "\.(ts|js|py|go|rs|java|cpp|c|rb|swift|kt)$" && \
    ! echo "$FILE_PATH" | grep -qiE "(test|spec|\.config|\.d\.ts)"; then
   cat << 'EOF'
 **Peer Review Check:** You're about to write implementation code.
