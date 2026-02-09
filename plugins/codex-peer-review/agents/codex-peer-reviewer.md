@@ -3,7 +3,6 @@ name: codex-peer-reviewer
 description: Use this agent to run peer review validation with Codex CLI. Dispatches to a separate context to keep the main conversation clean. Returns synthesized peer review results.
 model: sonnet
 color: cyan
-permissionMode: bypassPermissions
 skills:
   - codex-peer-review
 tools:
@@ -13,9 +12,16 @@ tools:
   - Bash(command -v jq*)
   - Bash(jq *)
   - Bash(grep *)
+  - Bash(head *)
   - Bash(mcp-cli *)
   - Bash(tee *)
   - Bash(cat *)
+  - Bash(mktemp *)
+  - Bash(rm *)
+  - Bash(timeout *)
+  - Bash(git diff*)
+  - Bash(git show*)
+  - Bash(git log*)
   - Read
   - WebSearch
   - TaskCreate
@@ -93,23 +99,59 @@ Update task: `activeForm: "Getting Codex perspective..."`
 - Cross-checking Claude's analysis
 - Any focused or scoped review request
 
-**IMPORTANT:** Always use heredoc stdin for prompts to avoid shell escaping issues and permission prompts.
-
 ---
 
-**For almost all reviews (DEFAULT):**
+## CRITICAL: Output Protection
+
+Codex CLI runs in full-auto mode. Without constraints, it will autonomously read files, search code, and stream massive JSON output that can crash the agent (64MB+ observed). **Every `codex exec` invocation MUST include these protections:**
+
+1. **Tool-prevention suffix** — End every prompt with:
+   ```
+   IMPORTANT: Do not use any tools, do not read files, do not search code.
+   Analyze ONLY the content provided in this prompt. Output text only.
+   ```
+2. **Timeout** — Wrap with `timeout 120` to prevent infinite tool loops
+3. **Output cap** — Pipe through `head -c 500000` to cap at 500KB
+
+## CRITICAL: Include Content Directly in Prompts
+
+**NEVER** reference file paths and expect Codex to read them — this triggers the tool-use explosion. Instead, include file contents directly in the prompt.
+
+For large prompts (multi-file reviews), use a temp file:
+
 ```bash
-# Use codex exec with heredoc - prompt goes directly to stdin
-# No temp files needed, no extra permissions required
-codex exec <<'EOF'
+PROMPT_FILE=$(mktemp /tmp/codex-prompt-XXXXXX.md)
+cat > "$PROMPT_FILE" <<'PROMPT_EOF'
+Review this shell script for correctness:
+
+```bash
+[FILE CONTENTS PASTED HERE]
+```
+
+IMPORTANT: Do not use any tools, do not read files, do not search code.
+Analyze ONLY the content provided in this prompt. Output text only.
+PROMPT_EOF
+cat "$PROMPT_FILE" | timeout 120 codex exec 2>&1 | head -c 500000
+rm -f "$PROMPT_FILE"
+```
+
+For smaller prompts, heredoc works:
+
+```bash
+timeout 120 codex exec <<'EOF' 2>&1 | head -c 500000
 Review the following code/changes for:
 - [Specific concern from user's request]
 - Code quality and potential bugs
 - Edge cases
 
-[Paste the specific code or describe the specific changes here]
+[Paste the specific code directly here — NOT file paths]
+
+IMPORTANT: Do not use any tools, do not read files, do not search code.
+Analyze ONLY the content provided in this prompt. Output text only.
 EOF
 ```
+
+For large multi-file reviews, break into focused prompts per file or concern area rather than putting everything in one massive prompt.
 
 ---
 
@@ -129,11 +171,6 @@ codex review --base [branch]
 ```bash
 codex review --commit [sha]
 ```
-
-**Why heredoc stdin?**
-- No temp file permissions needed (`mktemp`, `cat`)
-- No shell escaping issues with quotes, newlines, or special characters
-- Single command = single permission prompt
 
 ### Step 3: Compare Results
 
@@ -157,7 +194,7 @@ Update task: `activeForm: "Discussion round 1: Gathering evidence..."`
 Present Claude's position to Codex with a focused prompt:
 
 ```bash
-codex exec --json <<'EOF' 2>&1 | tee /tmp/codex_round1_$$.json
+timeout 120 codex exec --json <<'EOF' 2>&1 | tee /tmp/codex_round1_$$.json | head -c 500000
 Given this disagreement about [topic]:
 
 Claude's position: [summary with specific evidence]
@@ -169,6 +206,9 @@ Provide your evidence-based response:
 1. Where do you agree?
 2. Where do you disagree and why?
 3. What specific evidence supports your position?
+
+IMPORTANT: Do not use any tools, do not read files, do not search code.
+Analyze ONLY the content provided in this prompt. Output text only.
 EOF
 ```
 
@@ -189,14 +229,12 @@ fi
 
 Update task: `activeForm: "Discussion round 2: Seeking resolution..."`
 
-Resume the Codex session with new evidence:
+Resume the Codex session with new evidence. **Note:** Session resume can be unreliable — always include full context as fallback:
 
 ```bash
+PROMPT_FILE=$(mktemp /tmp/codex-round2-XXXXXX.md)
 if [ -n "$SESSION_ID" ]; then
-  codex exec resume "$SESSION_ID" --json <<'EOF'
-else
-  codex exec --json <<'EOF'
-fi
+  cat > "$PROMPT_FILE" <<'PROMPT_EOF'
 Claude responds to your Round 1 points:
 
 New evidence: [something not presented before]
@@ -204,7 +242,31 @@ Concession: [what Claude now agrees with]
 Maintained: [what Claude still believes, with stronger reasoning]
 
 Can we reach synthesis? What is your final position?
-EOF
+
+IMPORTANT: Do not use any tools, do not read files, do not search code.
+Analyze ONLY the content provided in this prompt. Output text only.
+PROMPT_EOF
+  cat "$PROMPT_FILE" | timeout 120 codex exec resume "$SESSION_ID" --json 2>&1 | head -c 500000
+else
+  # Fallback: re-inject full context from Round 1
+  cat > "$PROMPT_FILE" <<'PROMPT_EOF'
+Continuing discussion about [topic]:
+
+Round 1 summary:
+- Claude's position: [summary]
+- Codex's position: [summary from Round 1]
+
+Claude's Round 2 response with new evidence:
+[new evidence and reasoning]
+
+Can we reach synthesis? What is your final position?
+
+IMPORTANT: Do not use any tools, do not read files, do not search code.
+Analyze ONLY the content provided in this prompt. Output text only.
+PROMPT_EOF
+  cat "$PROMPT_FILE" | timeout 120 codex exec --json 2>&1 | head -c 500000
+fi
+rm -f "$PROMPT_FILE"
 ```
 
 **Evaluate Round 2:**

@@ -32,9 +32,16 @@ Every position should cite evidence from these categories **as applicable**:
 - **Capture session ID** from Round 1 using `codex exec --json` (look for `thread_id` in output)
 - **Resume session** in Round 2 using `codex exec resume [SESSION_ID]`
 - This maintains conversation context so Codex remembers Round 1 discussion
+- **Fallback:** Session resume can be unreliable — always prepare full context re-injection as backup
 - Without session continuity, Round 2 starts fresh and loses valuable context
 
-### Rule 5: Classify Disagreement Type
+### Rule 5: Output Protection (MANDATORY)
+- **Every** `codex exec` call MUST be wrapped with `timeout 120` and `| head -c 500000`
+- **Every** prompt MUST end with: "IMPORTANT: Do not use any tools, do not read files, do not search code. Analyze ONLY the content provided in this prompt. Output text only."
+- **Never** reference file paths — include all content directly in the prompt
+- Without these protections, Codex will autonomously read files and produce 10-100MB of output
+
+### Rule 6: Classify Disagreement Type
 
 | Type | Definition | Action |
 |------|------------|--------|

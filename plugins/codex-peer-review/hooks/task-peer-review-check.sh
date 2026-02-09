@@ -1,11 +1,11 @@
 #!/bin/bash
 # PreToolUse hook for Task: Check if dispatching to a review-related agent
 
-# Read hook context from stdin (JSON)
-INPUT=$(cat)
-
-# The full JSON input contains tool parameters; check for review-related dispatch
-TOOL_INPUT="$INPUT"
+# Get tool input from environment or stdin
+TOOL_INPUT="${CLAUDE_TOOL_INPUT:-}"
+if [ -z "$TOOL_INPUT" ]; then
+  TOOL_INPUT=$(cat)
+fi
 
 # Check if this is dispatching to a code review or similar agent (but NOT our peer reviewer)
 if echo "$TOOL_INPUT" | grep -qiE "code-review|review|architect|design" && \
