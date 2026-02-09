@@ -2,6 +2,32 @@
 
 Anti-patterns that undermine peer review effectiveness. When you catch yourself thinking these things, stop and correct course.
 
+## Letting Codex Use Tools (Output Explosion)
+
+**This is the #1 Codex-specific mistake and will crash the agent.**
+
+| Wrong | Right |
+|-------|-------|
+| `codex exec "Review files at ~/project/"` | Include file contents in prompt, add "Do not use tools" suffix |
+| `codex exec --json <<'EOF'` (no output cap) | `timeout 120 codex exec <<'EOF' 2>&1 \| head -c 500000` |
+| Referencing file paths in prompts | Pasting file contents directly into the prompt |
+| No timeout wrapping | Always use `timeout 120` |
+
+Codex CLI runs in full-auto mode by default. Without constraints, it will:
+- Read every file referenced in the prompt
+- Search for related code across the repo
+- Output each tool call as JSON (with --json flag)
+- Produce 10-100MB of streaming output that crashes the agent
+
+**Observed failure:** A VFIO toolkit review (8 scripts + 430-line guide) produced a 64MB output file that OOM'd the peer-reviewer agent.
+
+**Rules:**
+1. **Include relevant content directly** in the prompt — never reference file paths
+2. **End every prompt with:** "IMPORTANT: Do not use any tools, do not read files, do not search code. Analyze ONLY the content provided in this prompt. Output text only."
+3. **Always wrap** with `timeout 120` and `| head -c 500000`
+4. For multi-file reviews, **break into focused per-file prompts** rather than one massive prompt
+5. Use temp files (`mktemp /tmp/codex-prompt-XXXXXX.md`) for large prompts
+
 ## Using the Wrong Codex Command
 
 **This is the #1 mistake.** Using `codex review` when you should use `codex exec`.

@@ -85,7 +85,13 @@ Validate Claude's response to this question using Codex CLI.
 
 Question: [the question from arguments]
 
-Command: codex exec "[focused prompt about the question]"
+Command: Use codex exec with output protection:
+  timeout 120 codex exec <<'EOF' 2>&1 | head -c 500000
+  [focused prompt about the question]
+
+  IMPORTANT: Do not use any tools, do not read files, do not search code.
+  Analyze ONLY the content provided in this prompt. Output text only.
+  EOF
 
 Return findings for comparison and synthesis.
 ```

@@ -1,15 +1,15 @@
 #!/bin/bash
 # UserPromptSubmit hook: Identify requests likely needing peer review
 
-# Read hook context from stdin (JSON)
-INPUT=$(cat)
-
-# Extract the user's prompt from JSON input
-# Try jq first, fall back to grep/cut
-if command -v jq &>/dev/null; then
-  USER_PROMPT=$(echo "$INPUT" | jq -r '.prompt // empty' 2>/dev/null)
-else
-  USER_PROMPT=$(echo "$INPUT" | grep -o '"prompt":"[^"]*"' | head -1 | cut -d'"' -f4)
+# Get the user's prompt from environment or stdin
+USER_PROMPT="${CLAUDE_USER_PROMPT:-}"
+if [ -z "$USER_PROMPT" ]; then
+  INPUT=$(cat)
+  if command -v jq &>/dev/null; then
+    USER_PROMPT=$(echo "$INPUT" | jq -r '.prompt // empty' 2>/dev/null)
+  else
+    USER_PROMPT=$(echo "$INPUT" | grep -o '"prompt":"[^"]*"' | head -1 | cut -d'"' -f4)
+  fi
 fi
 
 # Keywords that suggest peer review would be valuable

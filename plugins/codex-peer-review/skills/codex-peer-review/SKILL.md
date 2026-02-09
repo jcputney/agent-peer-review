@@ -82,6 +82,50 @@ digraph workflow {
 
 **Immediate Escalation:** Security concerns, architecture conflicts, breaking changes, or order-of-magnitude performance disagreements skip discussion and escalate directly. See @escalation-criteria.md for details.
 
+## CRITICAL: Output Protection
+
+Codex CLI runs in full-auto mode by default. Without constraints, it will:
+- Read every file referenced in the prompt
+- Search for related code across the repo
+- Output each tool call as JSON (with --json flag)
+- Produce 10-100MB of streaming output that crashes the agent
+
+**Every `codex exec` invocation MUST include ALL THREE protections:**
+
+| Protection | How | Why |
+|-----------|-----|-----|
+| Tool prevention | End prompt with "Do not use any tools. Output text only." | Prevents autonomous file reading/searching |
+| Timeout | `timeout 120 codex exec ...` | Prevents infinite tool loops |
+| Output cap | `\| head -c 500000` | Caps output at 500KB |
+
+## CRITICAL: Include Content in Prompts
+
+**NEVER** reference file paths and expect Codex to read them. This is what causes the output explosion.
+
+```bash
+# WRONG — Codex will try to read files, causing massive tool output
+codex exec <<'EOF'
+Review the scripts at ~/chat/vfio-setup/scripts/
+EOF
+
+# RIGHT — Include content directly, prevent tool use
+PROMPT_FILE=$(mktemp /tmp/codex-prompt-XXXXXX.md)
+cat > "$PROMPT_FILE" <<'PROMPT_EOF'
+Review this shell script for correctness:
+
+\`\`\`bash
+$(cat ~/chat/vfio-setup/scripts/01-discover-gpu.sh)
+\`\`\`
+
+IMPORTANT: Do not use any tools, do not read files, do not search code.
+Analyze ONLY the content provided in this prompt. Output text only.
+PROMPT_EOF
+cat "$PROMPT_FILE" | timeout 120 codex exec 2>&1 | head -c 500000
+rm -f "$PROMPT_FILE"
+```
+
+For large multi-file reviews, break into focused prompts per file or concern area.
+
 ## Subagent Dispatch
 
 **CRITICAL:** Always use subagent to avoid context pollution. Never run Codex in main context.
@@ -109,7 +153,7 @@ You are validating Claude's analysis using OpenAI Codex CLI.
 
 ## Scope
 - Type: [code-review|design|architecture|question]
-- Files: [relevant files - be specific!]
+- Content: [INCLUDE the relevant content directly — do NOT reference file paths]
 
 ## Task - CHOOSE THE RIGHT COMMAND
 
@@ -117,15 +161,16 @@ You are validating Claude's analysis using OpenAI Codex CLI.
 Run: codex review --base [branch]
 
 ### If Type is "design", "architecture", or "question":
-Run: codex exec with heredoc (avoids escaping issues and permission prompts):
+Run: codex exec with output protection:
 
 ```bash
-codex exec <<'EOF'
+PROMPT_FILE=$(mktemp /tmp/codex-prompt-XXXXXX.md)
+cat > "$PROMPT_FILE" <<'PROMPT_EOF'
 Validate this [design|refactoring plan|architecture proposal]:
 
 [Summarize Claude's specific proposal in 2-3 sentences]
 
-Files affected: [list specific files]
+[INCLUDE relevant file contents directly here]
 
 Check for:
 - Architecture issues
@@ -134,7 +179,12 @@ Check for:
 - Missing considerations
 
 Provide specific, actionable feedback.
-EOF
+
+IMPORTANT: Do not use any tools, do not read files, do not search code.
+Analyze ONLY the content provided in this prompt. Output text only.
+PROMPT_EOF
+cat "$PROMPT_FILE" | timeout 120 codex exec 2>&1 | head -c 500000
+rm -f "$PROMPT_FILE"
 ```
 
 ## Compare and Classify
@@ -169,7 +219,7 @@ mcp-cli call perplexity/perplexity_ask '{"messages":[{"role":"user","content":"[
 
 ### Discussion Subagent
 
-**IMPORTANT:** Use Codex session IDs to maintain conversation context across discussion rounds. This allows Codex to remember prior discussion context.
+**IMPORTANT:** Use Codex session IDs to maintain conversation context across discussion rounds. This allows Codex to remember prior discussion context. **However**, session resume can be unreliable — always include full context as fallback.
 
 #### Round 1 (Initial Discussion)
 
@@ -185,16 +235,19 @@ First, verify tools are available:
 - Check jq (optional but recommended): `which jq || echo "WARNING: jq not available, will use grep fallback"`
 
 ## Task
-1. Run codex exec with --json and capture output to extract session ID:
+1. Run codex exec with --json, output protection, and tool-prevention suffix:
 
    ```bash
-   codex exec --json <<'EOF' 2>&1 | tee /tmp/codex_round1_$$.json
+   timeout 120 codex exec --json <<'EOF' 2>&1 | tee /tmp/codex_round1_$$.json | head -c 500000
    Given this disagreement about [topic]:
 
    Claude's position: [summary with evidence]
 
    Provide your evidence-based reasoning. Reference specific code or conventions.
    What is your position and why?
+
+   IMPORTANT: Do not use any tools, do not read files, do not search code.
+   Analyze ONLY the content provided in this prompt. Output text only.
    EOF
    ```
 
@@ -208,10 +261,10 @@ First, verify tools are available:
      SESSION_ID=$(grep -o '"thread_id":"[^"]*"' "$TMPFILE" 2>/dev/null | head -1 | cut -d'"' -f4)
    fi
 
-   [ -z "$SESSION_ID" ] && echo "WARNING: Could not extract session ID. Round 2 will start fresh."
+   [ -z "$SESSION_ID" ] && echo "WARNING: Could not extract session ID. Round 2 will use context re-injection."
    ```
 
-4. Parse Codex response and attempt synthesis
+3. Parse Codex response and attempt synthesis
 
 ## Return Format
 {
@@ -230,21 +283,26 @@ First, verify tools are available:
 Discussion Round 2
 
 ## Task
-1. Resume the previous Codex session (if session ID available):
+1. Resume the previous Codex session (if session ID available), with output protection:
 
    ```bash
-   # If we have a session ID, resume; otherwise start fresh with context
+   PROMPT_FILE=$(mktemp /tmp/codex-round2-XXXXXX.md)
+   # If we have a session ID, resume; otherwise re-inject full context
    if [ -n "$SESSION_ID" ]; then
-     codex exec resume "$SESSION_ID" --json <<'EOF' 2>&1 | tee /tmp/codex_round2_$$.json
+     cat > "$PROMPT_FILE" <<'PROMPT_EOF'
    Claude responds to your points:
 
    [Claude's Round 2 response with new evidence]
 
    Can we reach synthesis? What is your final position?
-   EOF
+
+   IMPORTANT: Do not use any tools, do not read files, do not search code.
+   Analyze ONLY the content provided in this prompt. Output text only.
+   PROMPT_EOF
+     cat "$PROMPT_FILE" | timeout 120 codex exec resume "$SESSION_ID" --json 2>&1 | head -c 500000
    else
-     # Fallback: Start fresh but include Round 1 context in prompt
-     codex exec --json <<'EOF' 2>&1 | tee /tmp/codex_round2_$$.json
+     # Fallback: Re-inject full context from Round 1
+     cat > "$PROMPT_FILE" <<'PROMPT_EOF'
    Continuing discussion about [topic]:
 
    Round 1 summary:
@@ -254,8 +312,13 @@ Discussion Round 2
    Claude's Round 2 response: [new evidence]
 
    Can we reach synthesis? What is your final position?
-   EOF
+
+   IMPORTANT: Do not use any tools, do not read files, do not search code.
+   Analyze ONLY the content provided in this prompt. Output text only.
+   PROMPT_EOF
+     cat "$PROMPT_FILE" | timeout 120 codex exec --json 2>&1 | head -c 500000
    fi
+   rm -f "$PROMPT_FILE"
    ```
 
 2. Parse Codex response
@@ -362,18 +425,32 @@ echo "Focus on security vulnerabilities and error handling in the authentication
 **Key:** Always pass Claude's review focus (e.g., "security in authentication flow", "error handling in API endpoints", "the UserService refactoring") to Codex so both AIs examine the same areas.
 
 ### For Design/Plan Validation (NOT code review!)
+
+**Always use output protection and tool-prevention suffix:**
+
 ```bash
 # Validate a refactoring proposal
-codex exec "Validate this refactoring plan for the data processor module: Extract 3 classes (Validator, Parser, Invoker) to fix SRP violation. Is this appropriate? What are the risks?"
+timeout 120 codex exec <<'EOF' 2>&1 | head -c 500000
+Validate this refactoring plan for the data processor module:
+Extract 3 classes (Validator, Parser, Invoker) to fix SRP violation.
+Is this appropriate? What are the risks?
+
+IMPORTANT: Do not use any tools, do not read files, do not search code.
+Analyze ONLY the content provided in this prompt. Output text only.
+EOF
 
 # Validate architecture recommendation
-codex exec "Review this architecture decision: Use event-driven pattern for notification system instead of direct calls. Context: [language/framework] with dependency injection. Check for issues."
+timeout 120 codex exec <<'EOF' 2>&1 | head -c 500000
+Review this architecture decision: Use event-driven pattern for notification
+system instead of direct calls. Context: [language/framework] with DI.
+Check for issues.
 
-# Answer a broad technical question
-codex exec "In a multi-module project, should shared DTOs go in the common module or a dedicated api-contracts module? Consider: compile dependencies, versioning, encapsulation."
+IMPORTANT: Do not use any tools, do not read files, do not search code.
+Analyze ONLY the content provided in this prompt. Output text only.
+EOF
 ```
 
-**REMEMBER:** `codex review` reviews the entire git diff. `codex exec` validates a specific proposal.
+**REMEMBER:** `codex review` reviews the entire git diff. `codex exec` validates a specific proposal. **Always** include the tool-prevention suffix and wrap with `timeout`/`head`.
 
 ## Output Formats
 

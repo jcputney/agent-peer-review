@@ -1,15 +1,15 @@
 #!/bin/bash
 # PreToolUse hook for Write: Check if writing significant implementation files
 
-# Read hook context from stdin (JSON)
-INPUT=$(cat)
-
-# Extract the file_path from JSON input
-# Try jq first, fall back to grep/cut
-if command -v jq &>/dev/null; then
-  FILE_PATH=$(echo "$INPUT" | jq -r '.file_path // empty' 2>/dev/null)
-else
-  FILE_PATH=$(echo "$INPUT" | grep -o '"file_path":"[^"]*"' | head -1 | cut -d'"' -f4)
+# Get the file path from environment or stdin
+FILE_PATH="${CLAUDE_TOOL_INPUT:-}"
+if [ -z "$FILE_PATH" ]; then
+  INPUT=$(cat)
+  if command -v jq &>/dev/null; then
+    FILE_PATH=$(echo "$INPUT" | jq -r '.file_path // empty' 2>/dev/null)
+  else
+    FILE_PATH=$(echo "$INPUT" | grep -o '"file_path":"[^"]*"' | head -1 | cut -d'"' -f4)
+  fi
 fi
 
 # Check if writing implementation files (not config, not docs, not tests)
