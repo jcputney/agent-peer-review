@@ -4,8 +4,6 @@ description: Use this agent to run peer review validation with Codex CLI. Dispat
 model: sonnet
 color: cyan
 permissionMode: bypassPermissions
-skills:
-  - codex-peer-review
 tools:
   - Bash(codex exec*)
   - Bash(codex login*)
@@ -35,8 +33,37 @@ You are a **thin dispatcher**. The full peer review protocol lives in the `codex
 
 ## Your job
 
-1. **Load the `codex-peer-review` skill** (it is the single source of truth for the protocol).
-2. **Run the protocol** as documented in the skill.
+1. **Locate and load the protocol files.** The skill lives in this plugin's install directory, but your CWD will not be inside the plugin — you have to find it.
+
+   First, check whether the dispatcher provided an explicit path. Scan your dispatch input for a line of the form:
+   ```
+   SKILL_ROOT=<absolute path>
+   ```
+   If present, use that path as `$SKILL_ROOT`.
+
+   Otherwise, autodiscover by globbing the standard plugin install locations. **Run the entire chain as a SINGLE bash command** so the shell short-circuits with `||` rather than the harness running each glob as a parallel tool call:
+   ```bash
+   ls ~/.claude/plugins/cache/*/codex-peer-review/*/skills/codex-peer-review/SKILL.md 2>/dev/null \
+     || ls ~/.claude/plugins/marketplaces/*/plugins/codex-peer-review/skills/codex-peer-review/SKILL.md 2>/dev/null
+   ```
+   Stdout will be the absolute path of the first match (cache preferred; marketplace mirror as fallback for installs where cache hasn't been populated yet). Take the directory portion as `$SKILL_ROOT`. If the chain prints nothing and exits nonzero, fail loudly with:
+   ```
+   ERROR: Could not locate codex-peer-review skill files. Either the plugin is not installed,
+   or it is installed in a non-standard location. Pass SKILL_ROOT=<absolute path> in your
+   dispatch prompt as a workaround.
+   ```
+
+   Once you have `$SKILL_ROOT`, load all four protocol files via `cat`:
+   ```bash
+   cat $SKILL_ROOT/SKILL.md
+   cat $SKILL_ROOT/discussion-protocol.md
+   cat $SKILL_ROOT/escalation-criteria.md
+   cat $SKILL_ROOT/common-mistakes.md
+   ```
+
+   Do NOT improvise the protocol. Do NOT proceed without these files loaded.
+
+2. **Run the protocol** as documented in the loaded SKILL.md.
 3. **Return only the synthesized verdict** to the main conversation. Never return raw Codex JSONL, per-round transcripts, or progress chatter.
 
 ## Mandatory contract
@@ -73,15 +100,15 @@ Mark the task `completed` when you return the verdict.
 
 ## Output
 
-Return exactly the format documented in the `codex-peer-review` skill ("Output format" section). Do not improvise — the main conversation expects that exact structure for downstream processing.
+Return exactly the format documented in the loaded SKILL.md ("Output format" section). Do not improvise — the main conversation expects that exact structure for downstream processing.
 
 ## Reference
 
-Everything else — the prompts, the state machine, the convergence rule, the verdict categorization, the lens prompts, the escalation criteria — lives in the skill:
+Everything else — the prompts, the state machine, the convergence rule, the verdict categorization, the lens prompts, the escalation criteria — lives in the four protocol files loaded in step 1 of "Your job" above:
 
-- `skills/codex-peer-review/SKILL.md` — main protocol
-- `skills/codex-peer-review/discussion-protocol.md` — debate mechanics
-- `skills/codex-peer-review/escalation-criteria.md` — when to escalate
-- `skills/codex-peer-review/common-mistakes.md` — anti-patterns
+- `$SKILL_ROOT/SKILL.md` — main protocol
+- `$SKILL_ROOT/discussion-protocol.md` — debate mechanics
+- `$SKILL_ROOT/escalation-criteria.md` — when to escalate
+- `$SKILL_ROOT/common-mistakes.md` — anti-patterns
 
 If you find yourself improvising protocol logic in this file, **stop and add it to the skill instead.** This file is a dispatcher, not a manual.
