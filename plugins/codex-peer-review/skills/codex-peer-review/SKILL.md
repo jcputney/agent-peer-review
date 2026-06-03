@@ -28,34 +28,37 @@ Auto-trigger (proactive validation before presenting plans/designs/reviews) alwa
 
 ## Codex CLI Compatibility
 
-Tested against `codex-cli 0.118.0`. Hard requirements:
+Tested against `codex-cli 0.136.0`. Hard requirements:
 
-- `codex exec` for ALL machine-readable output (`codex review` does NOT support `--json` or `-o` in 0.118.0 — do not use it for parseable workflows)
+- `codex exec` for ALL machine-readable output (`codex review` exposes only `--base` — no `--json`, `-o`, or `--output-schema` — so it cannot drive parseable workflows)
 - `jq` (fail fast if missing — required for session ID extraction and JSONL parsing)
-- A configured `peer-review` profile in `~/.codex/config.toml` (see "Codex Profile Setup" below)
+- A configured `peer-review` profile **file** at `~/.codex/peer-review.config.toml`, layered via `--profile peer-review` (see "Codex Profile Setup" below)
 
-**Do NOT use `--output-schema`.** It is unstable in 0.118.0 under `--json` (timeouts, runtime panics, no output written). Schema is enforced via prompt template instead, with regex/jq extraction as the parser.
+**Schema is enforced via prompt template, parsed with `jq`** — not via `--output-schema`. (`codex exec` does expose `--output-schema <FILE>`, but the prompt-template + jq path is version-stable and avoids depending on its behavior.)
 
 ## Codex Profile Setup
 
-Model selection lives in `~/.codex/config.toml`, not in this plugin. This keeps CLI flags out of prompts and lets users tune without editing the plugin.
+Model selection lives in per-profile files under `~/.codex/`, not in this plugin. Codex CLI (profile-v2) resolves `--profile <name>` by layering `~/.codex/<name>.config.toml` on top of the base `~/.codex/config.toml`. This keeps CLI flags out of prompts and lets users tune without editing the plugin or touching `config.toml`.
 
-Run this once per machine (the plugin's `init` flow does this automatically if the profiles are missing):
+Run this once per machine (the plugin's `init` flow does this automatically if the files are missing):
 
-```toml
-# ~/.codex/config.toml
-[profiles.peer-review]
+```bash
+cat > ~/.codex/peer-review.config.toml <<'EOF'
 model = "gpt-5.4"
 model_reasoning_effort = "high"
+EOF
 
-[profiles.peer-review-summarizer]
+cat > ~/.codex/peer-review-summarizer.config.toml <<'EOF'
 model = "gpt-5.4-mini"
 model_reasoning_effort = "low"
+EOF
 ```
 
-The plugin invokes Codex as `codex exec --profile peer-review ...`. **Never hardcode `-m gpt-5.x-...`** in agent prompts.
+The plugin invokes Codex as `codex exec --profile peer-review ...` — the file is layered automatically. **Never hardcode `-m gpt-5.x-...`** in agent prompts.
 
-`gpt-5.3-codex-spark` still exists in 0.118.0 but is legacy/niche. `gpt-5.4-mini` is the durable cheap-workhorse choice.
+`gpt-5.4-mini` is the durable cheap-workhorse choice for the summarizer profile.
+
+> **Legacy note:** Pre-0.12 Codex used `[profiles.peer-review]` tables inside `config.toml`. Those are inert under profile-v2 — remove them by hand if you upgraded from an older plugin version. The plugin never writes to or edits `config.toml`.
 
 ## The Workflow
 
@@ -368,9 +371,9 @@ The agent file (`agents/codex-peer-reviewer.md`) is a thin dispatcher that loads
 command -v codex >/dev/null || { echo "ERROR: install codex CLI: npm i -g @openai/codex"; exit 1; }
 command -v jq >/dev/null || { echo "ERROR: install jq: brew install jq"; exit 1; }
 
-# Verify peer-review profile exists
-grep -q '\[profiles.peer-review\]' ~/.codex/config.toml || {
-  echo "ERROR: ~/.codex/config.toml missing [profiles.peer-review]. Run: codex-peer-review init"
+# Verify peer-review profile file exists
+[ -f ~/.codex/peer-review.config.toml ] || {
+  echo "ERROR: missing ~/.codex/peer-review.config.toml. Run: codex-peer-review init"
   exit 1
 }
 
@@ -391,7 +394,7 @@ codex login --check 2>/dev/null || echo "WARNING: run 'codex login'"
 | Cap hit, issues still escalated | Mark as Contested, present both views |
 
 **Key changes from prior versions:**
-- ❌ `codex review --json` removed (the flag does not exist in 0.118.0)
+- ❌ `codex review --json` removed (`codex review` exposes only `--base`; use `codex exec`)
 - ❌ Hardcoded `gpt-5.3-codex-spark` removed (use Codex profiles instead)
 - ❌ Asymmetric "Claude proposes, Codex validates" removed (now symmetric blind pass)
 - ❌ Top-level `converged: bool` removed (now derived from per-issue states)

@@ -16,7 +16,7 @@ You have been explicitly asked to run peer review validation using OpenAI Codex 
 /codex-peer-review --commit <SHA>           → blind-debate of one commit
 /codex-peer-review --mode classic [...]     → legacy single-pass validation (deprecated)
 /codex-peer-review --mode blind-debate [...] → explicit default
-/codex-peer-review init                     → write peer-review profile to ~/.codex/config.toml
+/codex-peer-review init                     → write peer-review profile files to ~/.codex/
 /codex-peer-review <question>               → blind-debate of an answer to a broad question
 ```
 
@@ -26,26 +26,26 @@ You have been explicitly asked to run peer review validation using OpenAI Codex 
 
 ## init subcommand
 
+Codex CLI uses **profile-v2 files**: `--profile <name>` layers `~/.codex/<name>.config.toml` on top of the base `~/.codex/config.toml`. Profiles are NOT `[profiles.*]` tables inside `config.toml` (that was the pre-0.12 scheme). The plugin writes one standalone file per profile and **never edits `config.toml`** — that file holds unrelated user settings.
+
 If the user runs `/codex-peer-review init`, do not dispatch the agent. Instead:
 
-1. **Check if `~/.codex/config.toml` already has the profiles:**
+1. **Check if the profile files already exist:**
    ```bash
-   if grep -q '\[profiles.peer-review\]' ~/.codex/config.toml 2>/dev/null; then
-     echo "Profile [profiles.peer-review] already exists. Nothing to do."
+   if [ -f ~/.codex/peer-review.config.toml ] && [ -f ~/.codex/peer-review-summarizer.config.toml ]; then
+     echo "Profile files already exist. Nothing to do."
      exit 0
    fi
    ```
 
-2. **Append the profile block:**
+2. **Write the profile files:**
    ```bash
    mkdir -p ~/.codex
-   cat >> ~/.codex/config.toml <<'EOF'
-
-   [profiles.peer-review]
+   cat > ~/.codex/peer-review.config.toml <<'EOF'
    model = "gpt-5.4"
    model_reasoning_effort = "high"
-
-   [profiles.peer-review-summarizer]
+   EOF
+   cat > ~/.codex/peer-review-summarizer.config.toml <<'EOF'
    model = "gpt-5.4-mini"
    model_reasoning_effort = "low"
    EOF
@@ -53,9 +53,11 @@ If the user runs `/codex-peer-review init`, do not dispatch the agent. Instead:
 
 3. **Confirm to the user:**
    ```
-   Wrote [profiles.peer-review] and [profiles.peer-review-summarizer] to ~/.codex/config.toml
+   Wrote ~/.codex/peer-review.config.toml and ~/.codex/peer-review-summarizer.config.toml
    You can now run /codex-peer-review.
    ```
+
+   If a legacy `[profiles.peer-review]` block still exists in `~/.codex/config.toml` from an older plugin version, mention that it is now inert and can be removed by hand — but do NOT edit `config.toml` yourself.
 
 4. **Stop.** Do not dispatch the agent.
 
@@ -68,8 +70,8 @@ If the user runs `/codex-peer-review init`, do not dispatch the agent. Instead:
 ```bash
 command -v codex >/dev/null || { echo "ERROR: install codex CLI: npm i -g @openai/codex"; exit 1; }
 command -v jq >/dev/null || { echo "ERROR: install jq: brew install jq"; exit 1; }
-grep -q '\[profiles.peer-review\]' ~/.codex/config.toml 2>/dev/null || {
-  echo "ERROR: ~/.codex/config.toml missing [profiles.peer-review]."
+[ -f ~/.codex/peer-review.config.toml ] || {
+  echo "ERROR: missing ~/.codex/peer-review.config.toml (Codex profile-v2 file)."
   echo "Run: /codex-peer-review init"
   exit 1
 }

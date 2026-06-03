@@ -27,7 +27,7 @@ Symmetric two-AI peer review using OpenAI Codex CLI. Both AIs review the same sc
 **Install dependencies:**
 
 ```bash
-# Codex CLI (0.118.0+ required)
+# Codex CLI (tested on 0.136.0; requires profile-v2 support)
 npm i -g @openai/codex
 codex login
 
@@ -42,7 +42,7 @@ brew install jq   # macOS
 /codex-peer-review init
 ```
 
-This writes `[profiles.peer-review]` and `[profiles.peer-review-summarizer]` to `~/.codex/config.toml`. Tune the models there if you want to use a different reasoning level or model family.
+This writes two profile-v2 files — `~/.codex/peer-review.config.toml` and `~/.codex/peer-review-summarizer.config.toml`. Codex layers them on top of your base config when invoked with `--profile`. Tune the models in those files to use a different reasoning level or model family. The plugin never edits your base `~/.codex/config.toml`.
 
 ## How Peer Review Works
 
@@ -63,7 +63,7 @@ A legacy `--mode classic` flag preserves the old single-pass validation behavior
 - **Symmetric blind pass** — both AIs review without priming, dramatically increasing coverage
 - **Canonical issue IDs** — same finding from both AIs collapses to one row, doubles as a confidence signal
 - **Per-issue state machine** — deterministic convergence, no rationalization loops
-- **Configurable via Codex profiles** — model and reasoning effort live in `~/.codex/config.toml`, not in plugin prompts
+- **Configurable via Codex profiles** — model and reasoning effort live in `~/.codex/peer-review.config.toml` profile files, not in plugin prompts
 - **Single source of truth** — full protocol lives in the skill; the agent file is a thin dispatcher
 - **Slash command** — explicit `/codex-peer-review` for on-demand validation
 - **Auto-trigger reminders** — hooks remind Claude to dispatch peer review before presenting plans, reviews, or recommendations
@@ -105,9 +105,11 @@ The reminder is advisory — Claude decides when to dispatch.
 
 ## Codex CLI Compatibility
 
-Tested against `codex-cli 0.118.0`. The plugin uses `codex exec` exclusively for machine-readable output. **`codex review --json` and `codex review -o` do not exist in 0.118.0** — the plugin previously used these and was partially broken; this release fixes that.
+Tested against `codex-cli 0.136.0`. The plugin uses `codex exec` exclusively for machine-readable output — `codex review` exposes only `--base`, with no `--json`, `-o`, or `--output-schema`.
 
-Schema enforcement uses prompt templates parsed with `jq`, not `--output-schema` (which is unstable in 0.118.0 under `--json`).
+Codex profiles use the **profile-v2** scheme: `--profile <name>` layers `~/.codex/<name>.config.toml` on top of the base config, rather than reading a `[profiles.<name>]` table inside `config.toml` (the pre-0.12 scheme). Earlier plugin versions wrote the old inline tables; under profile-v2 those are inert, which caused the plugin to repeatedly rewrite `~/.codex/config.toml` — fixed in this release. If you upgraded from an older version, delete any leftover `[profiles.peer-review]` blocks from your `config.toml` by hand.
+
+Schema enforcement uses prompt templates parsed with `jq`, not `--output-schema`.
 
 ## Permissions
 

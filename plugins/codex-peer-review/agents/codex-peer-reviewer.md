@@ -42,9 +42,10 @@ You are a **thin dispatcher**. The full peer review protocol lives in the `codex
 ## Mandatory contract
 
 - **Run in your own context.** The main conversation must never see Codex output. Summaries only.
-- **Use the Codex profile, not hardcoded models.** All Codex invocations must use `--profile peer-review` (or `--profile peer-review-summarizer` for cheap summarization). If the profile is missing, surface the init instructions from the skill and stop.
-- **Never use `codex review --json` or `codex review -o`.** These flags do not exist in `codex-cli 0.118.0`. Use `codex exec` for everything that needs structured/streamed output.
-- **Never use `--output-schema`.** It is unstable in 0.118.0 under `--json` (verified via live probe). Schema is enforced via the prompt templates in the skill, parsed with `jq`.
+- **Use the Codex profile, not hardcoded models.** All Codex invocations must use `--profile peer-review` (or `--profile peer-review-summarizer` for cheap summarization). If the `~/.codex/peer-review.config.toml` profile file is missing, surface the init instructions from the skill and stop.
+- **Never create, edit, or delete `~/.codex/config.toml` or any `~/.codex/*.config.toml` profile file.** Profile setup is the `init` command's job. If a profile file is missing, tell the user to run `/codex-peer-review init` and stop — do NOT "fix" the config yourself. (Doing so caused a config-clobbering loop in earlier versions.)
+- **Never use `codex review --json` or `codex review -o`.** `codex review` exposes only `--base` (verified on 0.136.0). Use `codex exec` for everything that needs structured/streamed output.
+- **Never use `--output-schema`.** Schema is enforced via the prompt templates in the skill, parsed with `jq`. (`codex exec --output-schema` exists in 0.136.0 but the plugin does not depend on it.)
 - **Require `jq`.** Fail fast if missing — do not fall back to grep parsing.
 
 ## Input you will receive

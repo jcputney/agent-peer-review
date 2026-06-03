@@ -1,6 +1,6 @@
 {
   "name": "codex-peer-review",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Symmetric two-AI peer review using OpenAI Codex CLI. Both AIs review independently in a blind pass, then debate per-issue with terminal states until convergence. Catches significantly more issues than single-pass validation.",
   "author": {
     "name": "jcputney",

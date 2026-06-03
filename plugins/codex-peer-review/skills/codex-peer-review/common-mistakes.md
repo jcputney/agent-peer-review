@@ -8,9 +8,9 @@ The most expensive class of mistake — building workflows on flags that don't e
 
 | Wrong | Right | Why |
 |-------|-------|-----|
-| `codex review --json` | `codex exec --json` | `codex review` does NOT support `--json` in 0.118.0 |
-| `codex review -o file` | `codex exec -o file` | `codex review` does NOT support `-o` in 0.118.0 |
-| `codex exec --output-schema schema.json --json` | Use prompt-template schemas | `--output-schema` is unstable under `--json` (timeouts, panics, no output) |
+| `codex review --json` | `codex exec --json` | `codex review` exposes only `--base` (verified on 0.136.0) — no machine-readable output |
+| `codex review -o file` | `codex exec -o file` | Same — `codex review` has no `-o` |
+| `codex exec --output-schema schema.json --json` | Use prompt-template schemas | The flag exists on 0.136.0 but the plugin does not depend on it; prompt-template + jq is version-stable |
 | `codex exec resume <id> --output-schema ...` | Re-inject schema in the prompt | `resume` does not accept `--output-schema` |
 | `-m gpt-5.3-codex-spark` (hardcoded) | `--profile peer-review-summarizer` | Hardcoded models drift; profiles let users tune |
 | `-m gpt-5.4` (hardcoded) | `--profile peer-review` | Same — profiles centralize model config |
@@ -96,7 +96,7 @@ The most expensive class of mistake — building workflows on flags that don't e
 | Skipping the pre-flight check for the profile | Run the check; surface init instructions if missing |
 | Editing prompts to set `model_reasoning_effort` | That belongs in the profile, not the prompt |
 
-If `~/.codex/config.toml` is missing the profiles, tell the user to run `/codex-peer-review init`. Do not invent fallback model names.
+If `~/.codex/peer-review.config.toml` is missing, tell the user to run `/codex-peer-review init`. Do not invent fallback model names, and never write the profile file yourself — `init` owns that.
 
 ## Guessing the Base Branch
 
@@ -138,9 +138,8 @@ If `~/.codex/config.toml` is missing the profiles, tell the user to run `/codex-
 3. Note any new findings the symmetric pass surfaced
 
 ### If `--output-schema` was attempted and failed
-1. The flag is unstable in 0.118.0 — this is expected
-2. Switch to prompt-template schemas (the SKILL.md prompts already do this)
-3. Parse with `jq` against the `findings` / `stances` blocks
+1. The plugin does not rely on `--output-schema` — switch to prompt-template schemas (the SKILL.md prompts already do this)
+2. Parse with `jq` against the `findings` / `stances` blocks
 
 ## Red Flags — STOP and Check
 
