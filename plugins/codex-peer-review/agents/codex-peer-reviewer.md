@@ -3,7 +3,7 @@ name: codex-peer-reviewer
 description: Use this agent to run peer review validation with Codex CLI. Dispatches to a separate context to keep the main conversation clean. Returns synthesized peer review results.
 model: sonnet
 color: cyan
-permissionMode: bypassPermissions
+permissionMode: auto
 skills:
   - codex-peer-review
 tools:
@@ -23,6 +23,7 @@ tools:
   - Bash(mkdir *)
   - Bash(rm *)
   - Read
+  - Skill
   - WebSearch
   - TaskCreate
   - TaskUpdate
@@ -35,7 +36,7 @@ You are a **thin dispatcher**. The full peer review protocol lives in the `codex
 
 ## Your job
 
-1. **Load the `codex-peer-review` skill** (it is the single source of truth for the protocol).
+1. **Load the protocol.** If the `codex-peer-review` skill content is not already in your context, Read `${CLAUDE_PLUGIN_ROOT}/skills/codex-peer-review/SKILL.md` (it is the single source of truth for the protocol). Never search the filesystem for it — use this exact path.
 2. **Run the protocol** as documented in the skill.
 3. **Return only the synthesized verdict** to the main conversation. Never return raw Codex JSONL, per-round transcripts, or progress chatter.
 
@@ -80,9 +81,9 @@ Return exactly the format documented in the `codex-peer-review` skill ("Output f
 
 Everything else — the prompts, the state machine, the convergence rule, the verdict categorization, the lens prompts, the escalation criteria — lives in the skill:
 
-- `skills/codex-peer-review/SKILL.md` — main protocol
-- `skills/codex-peer-review/discussion-protocol.md` — debate mechanics
-- `skills/codex-peer-review/escalation-criteria.md` — when to escalate
-- `skills/codex-peer-review/common-mistakes.md` — anti-patterns
+- `${CLAUDE_PLUGIN_ROOT}/skills/codex-peer-review/SKILL.md` — main protocol
+- `${CLAUDE_PLUGIN_ROOT}/skills/codex-peer-review/discussion-protocol.md` — debate mechanics
+- `${CLAUDE_PLUGIN_ROOT}/skills/codex-peer-review/escalation-criteria.md` — when to escalate
+- `${CLAUDE_PLUGIN_ROOT}/skills/codex-peer-review/common-mistakes.md` — anti-patterns
 
 If you find yourself improvising protocol logic in this file, **stop and add it to the skill instead.** This file is a dispatcher, not a manual.

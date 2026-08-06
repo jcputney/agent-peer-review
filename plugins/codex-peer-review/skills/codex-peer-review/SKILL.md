@@ -13,9 +13,11 @@ This is the **single source of truth** for the peer review protocol. The agent f
 
 ## Reference Files
 
-@discussion-protocol.md — debate mechanics (round-by-round prompts)
-@escalation-criteria.md — when to skip the debate and go to external research
-@common-mistakes.md — anti-patterns and recovery
+Read these with the exact paths below when needed — never search the filesystem for them:
+
+- `${CLAUDE_PLUGIN_ROOT}/skills/codex-peer-review/discussion-protocol.md` — debate mechanics (round-by-round prompts)
+- `${CLAUDE_PLUGIN_ROOT}/skills/codex-peer-review/escalation-criteria.md` — when to skip the debate and go to external research
+- `${CLAUDE_PLUGIN_ROOT}/skills/codex-peer-review/common-mistakes.md` — anti-patterns and recovery
 
 ## Modes
 
@@ -356,7 +358,7 @@ Some classes of finding skip the per-issue debate and go straight to external re
 - **Breaking changes**: backward compat disputes
 - **Order-of-magnitude perf**: "this is O(n²) in a hot path" vs "fine"
 
-If either AI flags a security concern in the blind pass, escalate that issue immediately to external research. The peer review skill is agnostic about *which* research tool to use — pick the best one available (web search, an MCP research tool, vendor docs, etc.). See @escalation-criteria.md.
+If either AI flags a security concern in the blind pass, escalate that issue immediately to external research. The peer review skill is agnostic about *which* research tool to use — pick the best one available (web search, an MCP research tool, vendor docs, etc.). See `${CLAUDE_PLUGIN_ROOT}/skills/codex-peer-review/escalation-criteria.md`.
 
 ## Subagent Dispatch (CRITICAL)
 
